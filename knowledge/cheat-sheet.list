@@ -1,0 +1,734 @@
+################################################################################
+# MONITORING STACK - COMPLETE COMMAND CHEAT SHEET
+# All Technologies: Docker, Prometheus, Grafana, Elasticsearch, Kibana, 
+#                   Logstash, Jaeger, Git, GitHub, Python, AlertManager
+################################################################################
+
+================================================================================
+📦 DOCKER & DOCKER COMPOSE COMMANDS
+================================================================================
+
+# Container Management
+docker ps                                    # List running containers
+docker ps -a                                 # List all containers (including stopped)
+docker ps --format "{{.Names}}"              # List container names only
+docker stats                                 # Show resource usage statistics
+docker logs <container>                      # View container logs
+docker logs -f <container>                   # Follow container logs (real-time)
+docker logs --tail 100 <container>           # Show last 100 log lines
+docker logs --since 10m <container>          # Logs from last 10 minutes
+docker exec -it <container> /bin/bash        # Interactive shell in container
+docker exec -it <container> sh               # Shell (if bash not available)
+docker inspect <container>                   # Detailed container info
+docker top <container>                       # Running processes in container
+docker port <container>                      # Port mappings
+docker restart <container>                   # Restart container
+docker stop <container>                      # Stop container
+docker start <container>                     # Start stopped container
+docker kill <container>                      # Force kill container
+docker rm <container>                        # Remove stopped container
+docker rm -f <container>                     # Force remove running container
+
+# Image Management
+docker images                                # List all images
+docker pull <image>:<tag>                    # Pull image from registry
+docker rmi <image>                           # Remove image
+docker rmi -f <image>                        # Force remove image
+docker image prune                           # Remove unused images
+docker image prune -a                        # Remove all unused images
+docker history <image>                       # Show image history
+docker tag <image> <new-name>:<tag>          # Tag an image
+docker save <image> > image.tar              # Export image to tar
+docker load < image.tar                      # Import image from tar
+
+# Docker Compose - Project Management
+docker compose up                            # Start all services (foreground)
+docker compose up -d                         # Start all services (background)
+docker compose down                          # Stop and remove containers
+docker compose down -v                       # Stop and remove containers + volumes
+docker compose start                         # Start stopped services
+docker compose stop                          # Stop running services
+docker compose restart                       # Restart all services
+docker compose pause                         # Pause services
+docker compose unpause                       # Unpause services
+docker compose ps                            # List containers in project
+docker compose ps --format json              # List in JSON format
+docker compose top                           # Show running processes
+
+# Docker Compose - Service Management
+docker compose up <service>                  # Start specific service
+docker compose up -d <service>               # Start specific service (background)
+docker compose stop <service>                # Stop specific service
+docker compose restart <service>             # Restart specific service
+docker compose logs <service>                # View service logs
+docker compose logs -f <service>             # Follow service logs
+docker compose logs -f --tail=100 <service>  # Follow last 100 lines
+docker compose exec <service> bash           # Shell into service container
+docker compose run <service> <command>       # Run one-off command in service
+
+# Docker Compose - Configuration
+docker compose config                        # Validate and view configuration
+docker compose config --services             # List all services
+docker compose config --volumes              # List all volumes
+docker compose version                       # Show Compose version
+docker compose -f custom.yml up              # Use custom compose file
+docker compose pull                          # Pull all images defined in compose
+
+# Docker Compose - Build
+docker compose build                         # Build/rebuild services
+docker compose build --no-cache              # Build without cache
+docker compose build <service>               # Build specific service
+docker compose up --build                    # Build and start
+
+# Docker System Management
+docker system df                             # Show disk usage
+docker system prune                          # Remove unused data
+docker system prune -a                       # Remove all unused data
+docker system prune -a --volumes             # Remove all unused + volumes
+docker system info                           # System-wide information
+docker version                               # Docker version info
+
+# Volume Management
+docker volume ls                             # List volumes
+docker volume inspect <volume>               # Inspect volume
+docker volume rm <volume>                    # Remove volume
+docker volume prune                          # Remove all unused volumes
+docker volume create <name>                  # Create volume
+
+# Network Management
+docker network ls                            # List networks
+docker network inspect <network>             # Inspect network
+docker network rm <network>                  # Remove network
+docker network prune                         # Remove unused networks
+docker network create <name>                 # Create network
+
+================================================================================
+🔥 PROMETHEUS COMMANDS & QUERIES
+================================================================================
+
+# Service Management
+docker compose exec prometheus promtool check config /etc/prometheus/prometheus.yml
+                                             # Validate Prometheus config
+curl localhost:9090/-/healthy                # Check health
+curl localhost:9090/-/ready                  # Check readiness
+curl -X POST localhost:9090/-/reload         # Reload configuration
+
+# PromQL Query Examples (via API or UI)
+up                                           # All targets up/down status
+up{job="prometheus"}                         # Specific job status
+up{job="node-exporter"}                      # Node exporter status
+node_cpu_seconds_total                       # CPU metrics
+node_memory_Active_bytes                     # Active memory
+rate(node_cpu_seconds_total[5m])             # CPU rate over 5 minutes
+avg(rate(node_cpu_seconds_total[5m]))        # Average CPU rate
+sum(rate(container_cpu_usage_seconds_total[5m])) by (name)
+                                             # Container CPU by name
+container_memory_usage_bytes                 # Container memory usage
+process_resident_memory_bytes                # Process memory
+http_requests_total                          # Total HTTP requests
+rate(http_requests_total[5m])                # HTTP request rate
+histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
+                                             # 95th percentile latency
+
+# Common Aggregations
+sum(metric)                                  # Sum all values
+avg(metric)                                  # Average
+max(metric)                                  # Maximum
+min(metric)                                  # Minimum
+count(metric)                                # Count
+sum by (label) (metric)                      # Sum grouped by label
+avg by (label) (metric)                      # Average grouped by label
+
+# Time Functions
+rate(metric[5m])                             # Per-second rate over 5 min
+irate(metric[5m])                            # Instant rate
+increase(metric[1h])                         # Increase over 1 hour
+delta(metric[1h])                            # Delta over 1 hour
+
+# HTTP API Queries
+curl 'http://localhost:9090/api/v1/query?query=up'
+                                             # Instant query
+curl 'http://localhost:9090/api/v1/query_range?query=up&start=2024-01-01T00:00:00Z&end=2024-01-01T01:00:00Z&step=15s'
+                                             # Range query
+curl 'http://localhost:9090/api/v1/labels'  # Get all labels
+curl 'http://localhost:9090/api/v1/label/__name__/values'
+                                             # Get all metric names
+curl 'http://localhost:9090/api/v1/targets' # Get all targets
+
+================================================================================
+📊 GRAFANA COMMANDS & API
+================================================================================
+
+# Service Management
+docker compose exec grafana grafana-cli plugins list
+                                             # List installed plugins
+docker compose exec grafana grafana-cli plugins install <plugin>
+                                             # Install plugin
+curl localhost:3000/api/health               # Health check
+
+# API - Authentication (use admin:admin or your credentials)
+export GRAFANA_TOKEN="Bearer your-api-key"   # Set API token
+
+# API - Datasources
+curl -X GET http://admin:admin@localhost:3000/api/datasources
+                                             # List datasources
+curl -X POST http://admin:admin@localhost:3000/api/datasources \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Prometheus","type":"prometheus","url":"http://prometheus:9090","access":"proxy"}'
+                                             # Add Prometheus datasource
+
+# API - Dashboards
+curl -X GET http://admin:admin@localhost:3000/api/dashboards/home
+                                             # Get home dashboard
+curl -X GET http://admin:admin@localhost:3000/api/search
+                                             # Search dashboards
+curl -X GET http://admin:admin@localhost:3000/api/dashboards/uid/<uid>
+                                             # Get dashboard by UID
+curl -X POST http://admin:admin@localhost:3000/api/dashboards/db \
+  -H "Content-Type: application/json" \
+  -d @dashboard.json                          # Import dashboard
+
+# API - Organizations
+curl -X GET http://admin:admin@localhost:3000/api/orgs
+                                             # List organizations
+curl -X GET http://admin:admin@localhost:3000/api/org
+                                             # Current organization
+
+# API - Users
+curl -X GET http://admin:admin@localhost:3000/api/users
+                                             # List users
+curl -X GET http://admin:admin@localhost:3000/api/user
+                                             # Current user
+
+# API - Alerts
+curl -X GET http://admin:admin@localhost:3000/api/alerts
+                                             # List alerts
+curl -X GET http://admin:admin@localhost:3000/api/alert-notifications
+                                             # Alert notifications
+
+================================================================================
+🔍 ELASTICSEARCH COMMANDS
+================================================================================
+
+# Cluster Health & Info
+curl localhost:9200                          # Cluster info
+curl localhost:9200/_cluster/health          # Cluster health
+curl localhost:9200/_cluster/health?pretty   # Pretty formatted
+curl localhost:9200/_cluster/stats?pretty    # Cluster stats
+curl localhost:9200/_nodes/stats?pretty      # Node stats
+curl localhost:9200/_cat/nodes?v             # Nodes overview
+curl localhost:9200/_cat/health?v            # Health overview
+curl localhost:9200/_cat/indices?v           # Indices overview
+curl localhost:9200/_cat/shards?v            # Shards overview
+
+# Index Management
+curl localhost:9200/_cat/indices             # List all indices
+curl -X GET localhost:9200/<index>           # Get index info
+curl -X PUT localhost:9200/<index>           # Create index
+curl -X DELETE localhost:9200/<index>        # Delete index
+curl -X POST localhost:9200/<index>/_close   # Close index
+curl -X POST localhost:9200/<index>/_open    # Open index
+curl localhost:9200/<index>/_settings?pretty # Get index settings
+curl localhost:9200/<index>/_mapping?pretty  # Get index mapping
+
+# Document Operations
+curl -X GET localhost:9200/<index>/_search?pretty
+                                             # Search all documents
+curl -X GET localhost:9200/<index>/_doc/<id> # Get document by ID
+curl -X POST localhost:9200/<index>/_doc -H 'Content-Type: application/json' \
+  -d '{"field":"value"}'                      # Index document
+curl -X PUT localhost:9200/<index>/_doc/<id> -H 'Content-Type: application/json' \
+  -d '{"field":"value"}'                      # Index with ID
+curl -X DELETE localhost:9200/<index>/_doc/<id>
+                                             # Delete document
+curl -X POST localhost:9200/<index>/_update/<id> -H 'Content-Type: application/json' \
+  -d '{"doc":{"field":"new_value"}}'          # Update document
+
+# Search Queries
+curl -X GET localhost:9200/<index>/_search?q=field:value
+                                             # Simple query string
+curl -X GET localhost:9200/_search?pretty -H 'Content-Type: application/json' \
+  -d '{"query":{"match_all":{}}}'             # Match all
+curl -X GET localhost:9200/<index>/_search?pretty -H 'Content-Type: application/json' \
+  -d '{"query":{"match":{"field":"value"}}}'  # Match query
+curl -X GET localhost:9200/<index>/_search?pretty -H 'Content-Type: application/json' \
+  -d '{"query":{"term":{"field":"value"}}}'   # Term query
+curl -X GET localhost:9200/<index>/_search?pretty -H 'Content-Type: application/json' \
+  -d '{"query":{"range":{"@timestamp":{"gte":"now-1h"}}}}'
+                                             # Range query (last hour)
+
+# Aggregations
+curl -X GET localhost:9200/<index>/_search?pretty -H 'Content-Type: application/json' \
+  -d '{"aggs":{"by_field":{"terms":{"field":"field_name"}}},"size":0}'
+                                             # Terms aggregation
+curl -X GET localhost:9200/<index>/_search?pretty -H 'Content-Type: application/json' \
+  -d '{"aggs":{"avg_value":{"avg":{"field":"field_name"}}},"size":0}'
+                                             # Average aggregation
+
+# Index Templates
+curl localhost:9200/_index_template?pretty   # List index templates
+curl -X PUT localhost:9200/_index_template/<name> -H 'Content-Type: application/json' \
+  -d @template.json                           # Create template
+
+# Bulk Operations
+curl -X POST localhost:9200/_bulk -H 'Content-Type: application/x-ndjson' \
+  --data-binary @bulk_data.json               # Bulk index
+
+================================================================================
+📝 LOGSTASH COMMANDS
+================================================================================
+
+# Configuration Testing
+docker compose exec logstash bin/logstash --config.test_and_exit -f /usr/share/logstash/pipeline/logstash.conf
+                                             # Test config syntax
+docker compose exec logstash bin/logstash --config.reload.automatic=true
+                                             # Auto-reload config
+
+# Pipeline Management
+curl localhost:9600/_node/stats/pipelines?pretty
+                                             # Pipeline stats
+curl localhost:9600/_node/stats?pretty       # Node stats
+curl localhost:9600/_node/hot_threads?pretty # Hot threads
+
+# Plugin Management
+docker compose exec logstash bin/logstash-plugin list
+                                             # List installed plugins
+docker compose exec logstash bin/logstash-plugin install logstash-filter-<name>
+                                             # Install plugin
+docker compose exec logstash bin/logstash-plugin update <plugin>
+                                             # Update plugin
+docker compose exec logstash bin/logstash-plugin remove <plugin>
+                                             # Remove plugin
+
+================================================================================
+🎨 KIBANA COMMANDS & API
+================================================================================
+
+# Service Management
+curl localhost:5601/api/status               # Kibana status
+curl localhost:5601/api/stats                # Kibana stats
+
+# Saved Objects API
+curl -X GET "localhost:5601/api/saved_objects/_find?type=dashboard" \
+  -H 'kbn-xsrf: true'                         # Find dashboards
+curl -X GET "localhost:5601/api/saved_objects/<type>/<id>" \
+  -H 'kbn-xsrf: true'                         # Get saved object
+curl -X POST "localhost:5601/api/saved_objects/_import" \
+  -H 'kbn-xsrf: true' --form file=@export.ndjson
+                                             # Import objects
+curl -X POST "localhost:5601/api/saved_objects/_export" \
+  -H 'kbn-xsrf: true' -H 'Content-Type: application/json' \
+  -d '{"type":"dashboard"}'                   # Export dashboards
+
+# Index Patterns
+curl -X GET "localhost:5601/api/saved_objects/_find?type=index-pattern" \
+  -H 'kbn-xsrf: true'                         # List index patterns
+curl -X POST "localhost:5601/api/saved_objects/index-pattern" \
+  -H 'kbn-xsrf: true' -H 'Content-Type: application/json' \
+  -d '{"attributes":{"title":"logstash-*"}}'  # Create index pattern
+
+# Spaces API
+curl -X GET "localhost:5601/api/spaces/space" \
+  -H 'kbn-xsrf: true'                         # List spaces
+curl -X POST "localhost:5601/api/spaces/space" \
+  -H 'kbn-xsrf: true' -H 'Content-Type: application/json' \
+  -d '{"id":"my-space","name":"My Space"}'    # Create space
+
+================================================================================
+🔭 JAEGER COMMANDS & API
+================================================================================
+
+# Query API
+curl localhost:16686/api/services            # List services
+curl localhost:16686/api/traces?service=<name>
+                                             # Get traces for service
+curl "localhost:16686/api/traces?service=<name>&start=1609459200000000&end=1609545600000000"
+                                             # Get traces with time range
+curl localhost:16686/api/services/<service>/operations
+                                             # Get operations for service
+
+# Health Check
+curl localhost:16687/                        # Admin health check
+
+# Dependencies
+curl "localhost:16686/api/dependencies?endTs=$(date +%s)000&lookback=86400000"
+                                             # Service dependencies
+
+================================================================================
+🚨 ALERTMANAGER COMMANDS & API
+================================================================================
+
+# Status & Health
+curl localhost:9093/-/healthy                # Health check
+curl localhost:9093/-/ready                  # Ready check
+curl -X POST localhost:9093/-/reload         # Reload config
+
+# Alerts API
+curl localhost:9093/api/v2/alerts            # Get all alerts
+curl localhost:9093/api/v2/alerts/groups     # Get alert groups
+curl -X POST localhost:9093/api/v2/alerts -H 'Content-Type: application/json' \
+  -d '[{"labels":{"alertname":"test"}}]'      # Send test alert
+
+# Silences
+curl localhost:9093/api/v2/silences          # Get silences
+curl -X POST localhost:9093/api/v2/silences -H 'Content-Type: application/json' \
+  -d '{"matchers":[{"name":"alertname","value":"test"}],"startsAt":"2024-01-01T00:00:00Z","endsAt":"2024-01-01T01:00:00Z","createdBy":"admin","comment":"test"}'
+                                             # Create silence
+curl -X DELETE localhost:9093/api/v2/silence/<id>
+                                             # Delete silence
+
+# Receivers & Config
+curl localhost:9093/api/v2/receivers         # List receivers
+curl localhost:9093/api/v2/status            # AlertManager status
+
+================================================================================
+📊 NODE EXPORTER & CADVISOR
+================================================================================
+
+# Node Exporter (System Metrics)
+curl localhost:9100/metrics                  # All node metrics
+curl localhost:9100/metrics | grep node_cpu # CPU metrics
+curl localhost:9100/metrics | grep node_memory
+                                             # Memory metrics
+curl localhost:9100/metrics | grep node_disk
+                                             # Disk metrics
+curl localhost:9100/metrics | grep node_network
+                                             # Network metrics
+
+# cAdvisor (Container Metrics)
+curl localhost:8080/metrics                  # Container metrics
+curl localhost:8080/api/v1.3/docker          # Docker containers info
+curl localhost:8080/api/v1.3/machine         # Machine info
+
+================================================================================
+🐙 GIT COMMANDS
+================================================================================
+
+# Repository Basics
+git init                                     # Initialize repository
+git clone <url>                              # Clone repository
+git status                                   # Check status
+git status -s                                # Short status
+git log                                      # View commit history
+git log --oneline                            # Compact log
+git log --graph --oneline --all              # Graph view
+git log -n 5                                 # Last 5 commits
+git log --since="2 weeks ago"                # Recent commits
+git show <commit>                            # Show commit details
+git diff                                     # Show unstaged changes
+git diff --staged                            # Show staged changes
+git diff <commit1> <commit2>                 # Compare commits
+
+# Staging & Committing
+git add <file>                               # Stage file
+git add .                                    # Stage all changes
+git add -A                                   # Stage all (including deletions)
+git add -p                                   # Interactive staging
+git commit -m "message"                      # Commit with message
+git commit -am "message"                     # Stage and commit (tracked files)
+git commit --amend                           # Amend last commit
+git commit --amend --no-edit                 # Amend without changing message
+
+# Branching
+git branch                                   # List branches
+git branch <name>                            # Create branch
+git branch -d <name>                         # Delete branch
+git branch -D <name>                         # Force delete branch
+git branch -m <old> <new>                    # Rename branch
+git checkout <branch>                        # Switch branch
+git checkout -b <name>                       # Create and switch branch
+git switch <branch>                          # Switch branch (new syntax)
+git switch -c <name>                         # Create and switch (new syntax)
+git merge <branch>                           # Merge branch
+git merge --no-ff <branch>                   # Merge with commit
+git rebase <branch>                          # Rebase onto branch
+
+# Remote Operations
+git remote -v                                # List remotes
+git remote add <name> <url>                  # Add remote
+git remote remove <name>                     # Remove remote
+git remote rename <old> <new>                # Rename remote
+git fetch                                    # Fetch from remote
+git fetch origin                             # Fetch from origin
+git pull                                     # Fetch and merge
+git pull --rebase                            # Fetch and rebase
+git push                                     # Push to remote
+git push -u origin <branch>                  # Push and set upstream
+git push -f                                  # Force push (dangerous!)
+git push --tags                              # Push tags
+git push origin --delete <branch>            # Delete remote branch
+
+# Stashing
+git stash                                    # Stash changes
+git stash save "message"                     # Stash with message
+git stash list                               # List stashes
+git stash pop                                # Apply and remove stash
+git stash apply                              # Apply stash (keep it)
+git stash drop                               # Remove stash
+git stash clear                              # Remove all stashes
+
+# Undoing Changes
+git restore <file>                           # Discard changes (new syntax)
+git restore --staged <file>                  # Unstage file (new syntax)
+git checkout -- <file>                       # Discard changes (old syntax)
+git reset <file>                             # Unstage file
+git reset --soft HEAD~1                      # Undo commit (keep changes)
+git reset --hard HEAD~1                      # Undo commit (discard changes)
+git revert <commit>                          # Create revert commit
+git clean -fd                                # Remove untracked files/dirs
+
+# Configuration
+git config --global user.name "Name"         # Set username
+git config --global user.email "email"       # Set email
+git config --global core.editor "code"       # Set editor
+git config --list                            # List all config
+git config --global --list                   # List global config
+
+# Tags
+git tag                                      # List tags
+git tag <name>                               # Create lightweight tag
+git tag -a <name> -m "message"               # Create annotated tag
+git tag -d <name>                            # Delete tag
+git push origin <tag>                        # Push tag
+git push origin --tags                       # Push all tags
+
+# Advanced
+git cherry-pick <commit>                     # Apply specific commit
+git bisect start                             # Start bisect (find bad commit)
+git reflog                                   # Show reflog
+git gc                                       # Garbage collection
+git fsck                                     # File system check
+
+================================================================================
+🐙 GITHUB API & CLI
+================================================================================
+
+# Repository Operations
+curl https://api.github.com/users/<username>/repos
+                                             # List user repos
+curl -H "Authorization: token <TOKEN>" https://api.github.com/user/repos
+                                             # List your repos
+curl -X POST -H "Authorization: token <TOKEN>" \
+  -d '{"name":"repo-name"}' https://api.github.com/user/repos
+                                             # Create repository
+curl -X DELETE -H "Authorization: token <TOKEN>" \
+  https://api.github.com/repos/<owner>/<repo>
+                                             # Delete repository
+
+# Issues
+curl https://api.github.com/repos/<owner>/<repo>/issues
+                                             # List issues
+curl -X POST -H "Authorization: token <TOKEN>" \
+  -d '{"title":"Issue","body":"Description"}' \
+  https://api.github.com/repos/<owner>/<repo>/issues
+                                             # Create issue
+
+# Pull Requests
+curl https://api.github.com/repos/<owner>/<repo>/pulls
+                                             # List pull requests
+curl -X POST -H "Authorization: token <TOKEN>" \
+  -d '{"title":"PR","head":"branch","base":"main"}' \
+  https://api.github.com/repos/<owner>/<repo>/pulls
+                                             # Create pull request
+
+# User Info
+curl https://api.github.com/users/<username> # Get user info
+curl -H "Authorization: token <TOKEN>" https://api.github.com/user
+                                             # Get authenticated user
+
+================================================================================
+🐍 PYTHON COMMANDS
+================================================================================
+
+# Python Environment
+python --version                             # Python version
+python3 --version                            # Python 3 version
+which python                                 # Python location
+pip --version                                # Pip version
+pip list                                     # List installed packages
+pip show <package>                           # Show package info
+pip freeze                                   # Export requirements
+pip freeze > requirements.txt                # Save requirements
+pip install -r requirements.txt              # Install from requirements
+
+# Virtual Environments
+python -m venv venv                          # Create virtual env
+source venv/bin/activate                     # Activate (Linux/Mac)
+venv\Scripts\activate                        # Activate (Windows)
+deactivate                                   # Deactivate
+
+# Running Scripts
+python script.py                             # Run script
+python -m module                             # Run module
+python -c "print('hello')"                   # Run command
+python -i script.py                          # Interactive after script
+python -m http.server 8000                   # Simple HTTP server
+python -m json.tool file.json                # Pretty print JSON
+
+# Package Management
+pip install <package>                        # Install package
+pip install <package>==version               # Install specific version
+pip install --upgrade <package>              # Upgrade package
+pip uninstall <package>                      # Uninstall package
+pip search <query>                           # Search packages
+
+================================================================================
+💻 DEPLOYMENT SCRIPT COMMANDS (This Project)
+================================================================================
+
+# Local Deployment
+python deploys/deploy_local.py               # Deploy monitoring stack
+python deploys/deploy_local.py --status      # Check service status
+python deploys/deploy_local.py --stop        # Stop all services
+python deploys/deploy_local.py --restart     # Restart services
+python deploys/deploy_local.py --logs prometheus
+                                             # View service logs
+
+# GitHub Sync
+python gitcode/github_sync.py                # Sync to GitHub (auto)
+python gitcode/github_sync.py <username>     # Sync with username
+python gitcode/github_sync.py --manual       # Manual commit message
+
+# Documentation Scripts
+python scripts/convert_to_html.py            # Convert docs to HTML
+python scripts/convert_purpose_to_html.py    # Convert PURPOSE.md
+
+================================================================================
+🔧 PROJECT-SPECIFIC COMMANDS
+================================================================================
+
+# Quick Start Stack
+cd 06_monitoring-stack
+docker compose up -d                         # Start all services
+docker compose ps                            # Check status
+docker compose logs -f                       # Follow all logs
+
+# Access Services
+# Grafana:       http://localhost:3000 (admin/admin)
+# Prometheus:    http://localhost:9090
+# Elasticsearch: http://localhost:9200
+# Kibana:        http://localhost:5601
+# Jaeger:        http://localhost:16686
+# AlertManager:  http://localhost:9093
+# cAdvisor:      http://localhost:8080
+# Node Exporter: http://localhost:9100
+
+# Service-Specific Logs
+docker compose logs -f prometheus            # Prometheus logs
+docker compose logs -f grafana               # Grafana logs
+docker compose logs -f elasticsearch         # Elasticsearch logs
+docker compose logs -f kibana                # Kibana logs
+docker compose logs -f logstash              # Logstash logs
+docker compose logs -f jaeger                # Jaeger logs
+
+# Troubleshooting
+docker compose down && docker compose up -d  # Full restart
+docker compose down -v                       # Remove all data
+docker system prune -a --volumes             # Clean everything
+docker compose config                        # Validate compose file
+
+================================================================================
+📊 MONITORING & OBSERVABILITY WORKFLOWS
+================================================================================
+
+# Check System Health
+docker compose ps                            # All services running?
+curl localhost:9090/-/healthy                # Prometheus healthy?
+curl localhost:9200/_cluster/health          # Elasticsearch healthy?
+curl localhost:3000/api/health               # Grafana healthy?
+
+# View Metrics
+curl localhost:9090/api/v1/query?query=up    # All targets up?
+curl localhost:9100/metrics | grep cpu       # CPU metrics
+curl localhost:8080/metrics | grep container # Container metrics
+
+# Search Logs
+curl localhost:9200/_cat/indices             # Available indices
+curl localhost:9200/logstash-*/_search?pretty
+                                             # Search logs
+# Via Kibana: http://localhost:5601
+
+# View Traces
+# Via Jaeger UI: http://localhost:16686
+curl localhost:16686/api/services            # List traced services
+
+# Check Alerts
+curl localhost:9093/api/v2/alerts            # Active alerts
+# Via Prometheus: http://localhost:9090/alerts
+
+================================================================================
+📚 USEFUL COMBINATIONS & WORKFLOWS
+================================================================================
+
+# Full Stack Reset
+docker compose down -v
+docker system prune -a --volumes
+docker compose up -d
+docker compose logs -f
+
+# Deploy and Monitor
+python deploys/deploy_local.py
+sleep 60
+python deploys/deploy_local.py --status
+docker compose logs -f prometheus
+
+# Backup Configuration
+tar -czf backup-$(date +%Y%m%d).tar.gz \
+  prometheus/ grafana/ alertmanager/ elk/
+
+# Export Grafana Dashboards
+curl -X GET http://admin:admin@localhost:3000/api/search | \
+  python -m json.tool > dashboards.json
+
+# Query Prometheus for All Up Services
+curl 'http://localhost:9090/api/v1/query?query=up' | \
+  python -m json.tool
+
+# Git Workflow for Updates
+git status
+git add .
+python gitcode/github_sync.py
+# Or manually:
+git commit -m "Update: description"
+git push origin main
+
+================================================================================
+🎯 QUICK REFERENCE - MOST USED COMMANDS
+================================================================================
+
+# Start Everything
+docker compose up -d
+
+# Stop Everything
+docker compose down
+
+# Check Status
+docker compose ps
+python deploys/deploy_local.py --status
+
+# View Logs
+docker compose logs -f <service>
+
+# Access UIs
+# Grafana:    http://localhost:3000
+# Prometheus: http://localhost:9090  
+# Kibana:     http://localhost:5601
+# Jaeger:     http://localhost:16686
+
+# Sync to GitHub
+python gitcode/github_sync.py
+
+# Restart Single Service
+docker compose restart <service>
+
+# Health Checks
+curl localhost:9090/-/healthy    # Prometheus
+curl localhost:9200              # Elasticsearch
+curl localhost:3000/api/health   # Grafana
+
+================================================================================
+END OF CHEAT SHEET
+================================================================================
+Total Technologies: 12
+Total Command Categories: 15
+Last Updated: January 2026
