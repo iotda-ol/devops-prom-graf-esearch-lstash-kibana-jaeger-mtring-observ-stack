@@ -1,0 +1,283 @@
+# Docker Compose - Complete Monitoring Stack
+# Production-ready configuration with all monitoring components
+
+version: '3.8'
+
+# Define networks for service isolation
+networks:
+  # Frontend network for UI services
+  monitoring_frontend:
+    driver: bridge
+  # Backend network for data services
+  monitoring_backend:
+    driver: bridge
+
+# Define persistent volumes
+volumes:
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:
+  elasticsearch_data:
+  logstash_data:
+
+
+services:
+  #############################################################################
+  # METRICS COLLECTION - Prometheus Stack
+  #############################################################################
+
+  # Prometheus - Time series database for metrics
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts:/etc/prometheus/alerts:ro
+      - ./prometheus/recording-rules:/etc/prometheus/recording-rules:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - monitoring_frontend
+      - monitoring_backend
+    depends_on:
+      - alertmanager
+      - node-exporter
+
+  # Alert Manager - Alert routing and notification
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: alertmanager
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/alertmanager'
+    volumes:
+      - ./alertmanager/config.yml:/etc/alertmanager/config.yml:ro
+      - alertmanager_data:/alertmanager
+    ports:
+      - "9093:9093"
+    networks:
+      - monitoring_frontend
+      - monitoring_backend
+
+  # Node Exporter - Host metrics collector
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: node-exporter
+    restart: unless-stopped
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    ports:
+      - "9100:9100"
+    networks:
+      - monitoring_backend
+
+  #############################################################################
+  # VISUALIZATION - Grafana
+  #############################################################################
+
+  # Grafana - Metrics and logs visualization
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      # Security settings
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+
+      # Server settings
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+      - GF_SERVER_SERVE_FROM_SUB_PATH=false
+
+      # Database settings (using SQLite by default)
+      - GF_DATABASE_TYPE=sqlite3
+
+      # Auth settings
+      - GF_AUTH_DISABLE_LOGIN_FORM=false
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+
+      # Logging
+      - GF_LOG_LEVEL=info
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - monitoring_frontend
+      - monitoring_backend
+    depends_on:
+      - prometheus
+      - elasticsearch
+
+  #############################################################################
+  # LOGGING - ELK Stack
+  #############################################################################
+
+  # Elasticsearch - Log storage and search
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: elasticsearch
+    restart: unless-stopped
+    environment:
+      # Cluster settings
+      - node.name=elasticsearch
+      - cluster.name=docker-cluster
+      - discovery.type=single-node
+
+      # Memory settings
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+
+      # Security settings (disabled for development)
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+
+      # License
+      - xpack.license.self_generated.type=basic
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    networks:
+      - monitoring_backend
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Logstash - Log processing pipeline
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.11.0
+    container_name: logstash
+    restart: unless-stopped
+    environment:
+      - "LS_JAVA_OPTS=-Xmx512m -Xms512m"
+      - xpack.monitoring.enabled=false
+      - pipeline.workers=2
+      - pipeline.batch.size=125
+    volumes:
+      - ./elk/logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - logstash_data:/usr/share/logstash/data
+    ports:
+      - "5044:5044" # Beats input
+      - "5000:5000/tcp" # Syslog TCP
+      - "5000:5000/udp" # Syslog UDP
+      - "9600:9600" # Monitoring API
+    networks:
+      - monitoring_backend
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  # Kibana - Log visualization and exploration
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: kibana
+    restart: unless-stopped
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_NAME=kibana
+      - SERVER_HOST=0.0.0.0
+      - xpack.security.enabled=false
+      - xpack.monitoring.enabled=false
+    ports:
+      - "5601:5601"
+    networks:
+      - monitoring_frontend
+      - monitoring_backend
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  #############################################################################
+  # DISTRIBUTED TRACING - Jaeger
+  #############################################################################
+
+  # Jaeger - All-in-one for distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:1.51
+    container_name: jaeger
+    restart: unless-stopped
+    environment:
+      # Collector settings
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+      - COLLECTOR_OTLP_ENABLED=true
+
+      # Storage settings (in-memory for development)
+      - SPAN_STORAGE_TYPE=memory
+
+      # Query settings
+      - QUERY_BASE_PATH=/jaeger
+    ports:
+      # Agent ports
+      - "5775:5775/udp" # Accept zipkin.thrift over compact thrift protocol
+      - "6831:6831/udp" # Accept jaeger.thrift over compact thrift protocol
+      - "6832:6832/udp" # Accept jaeger.thrift over binary thrift protocol
+      - "5778:5778" # Serve configs
+
+      # Collector ports
+      - "14268:14268" # Accept jaeger.thrift directly from clients
+      - "14250:14250" # Accept model.proto
+      - "9411:9411" # Zipkin compatible endpoint
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+
+      # Query (UI) port
+      - "16686:16686" # Serve frontend
+    networks:
+      - monitoring_frontend
+      - monitoring_backend
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:14269/ || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  #############################################################################
+  # ADDITIONAL EXPORTERS
+  #############################################################################
+
+  # cAdvisor - Container metrics exporter
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    container_name: cadvisor
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    ports:
+      - "8080:8080"
+    networks:
+      - monitoring_backend

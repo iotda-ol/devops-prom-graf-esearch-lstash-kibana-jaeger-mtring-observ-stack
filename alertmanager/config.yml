@@ -1,0 +1,31 @@
+# AlertManager Configuration - Simplified for Initial Deployment
+# This is a minimal working configuration
+
+# Global configuration
+global:
+  resolve_timeout: 5m
+
+# Route tree for alert distribution
+route:
+  # Root route - default settings for all alerts
+  receiver: 'default'
+  group_by: ['alertname', 'severity']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+
+# Receivers - notification integrations
+receivers:
+  # Default receiver - logs alerts to console
+  - name: 'default'
+    # No external integrations configured yet
+    # Add Slack, email, PagerDuty configs here when ready
+
+# Inhibition rules - suppress certain alerts based on other alerts
+inhibit_rules:
+  # If critical alert is firing, suppress warning alerts for the same instance
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']

@@ -1,0 +1,53 @@
+﻿# Monitoring Stack - .gitignore
+
+# CREDENTIALS - NEVER COMMIT THESE!
+gitcode/config.yaml
+config.yaml
+*.token
+*.key
+*.pem
+.env
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Docker volumes and data
+*_data/
+volumes/
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Generated files
+*.pdf
+*.zip
+*.tar.gz
+
+# Keep structure
+!.gitkeep

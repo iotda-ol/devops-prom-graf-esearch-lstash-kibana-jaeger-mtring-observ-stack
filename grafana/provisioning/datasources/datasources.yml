@@ -1,0 +1,58 @@
+# Grafana Datasource Provisioning
+# Automatically configure datasources on Grafana startup
+
+apiVersion: 1
+
+# List of datasources to configure
+datasources:
+  # Prometheus - Metrics datasource
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: "15s"
+      queryTimeout: "60s"
+      httpMethod: POST
+    version: 1
+
+  # Jaeger - Distributed tracing datasource
+  - name: Jaeger
+    type: jaeger
+    access: proxy
+    url: http://jaeger:16686
+    editable: false
+    jsonData:
+      tracesToLogs:
+        datasourceUid: 'Elasticsearch'
+        tags: ['job', 'instance', 'pod', 'namespace']
+    version: 1
+
+  # Elasticsearch - Logs datasource
+  - name: Elasticsearch
+    type: elasticsearch
+    access: proxy
+    url: http://elasticsearch:9200
+    database: "logs-*"
+    editable: false
+    jsonData:
+      timeField: "@timestamp"
+      esVersion: "8.11.0"
+      logMessageField: "message"
+      logLevelField: "level"
+      maxConcurrentShardRequests: 5
+      interval: Daily
+    version: 1
+
+  # Loki (Optional) - Log aggregation
+  # Uncomment if using Loki instead of or in addition to Elasticsearch
+  # - name: Loki
+  #   type: loki
+  #   access: proxy
+  #   url: http://loki:3100
+  #   editable: false
+  #   jsonData:
+  #     maxLines: 1000
+  #   version: 1
